@@ -1,0 +1,125 @@
+// natsClientReq
+// program publishes a request message on a topic with the nats server
+//
+
+package main
+
+import (
+	"fmt"
+	"log"
+    "os"
+	"time"
+//	"bufio"
+//  "strings"
+//	"strconv"
+//	"context"
+
+    util "github.com/prr123/utility/utilLib"
+
+	"github.com/nats-io/nats.go"
+//	"github.com/nats-io/nats.go/jetstream"
+)
+
+var dbg bool
+
+func main() {
+
+    numarg := len(os.Args)
+    flags:=[]string{"dbg", "serv", "port", "topic", "msg"}
+
+    useStr := "/serv=<server ip> /topic=<topic> /msg=<msg> [/port=<4222>] [/dbg]"
+    helpStr := "nats pub client"
+
+    if numarg > len(flags) +1 {
+        fmt.Println("too many arguments in cl!")
+        fmt.Println("usage: %s %s\n", os.Args[0], useStr)
+        os.Exit(-1)
+    }
+
+    if numarg == 1 || (numarg > 1 && os.Args[1] == "help") {
+        fmt.Printf("help: %s\n", helpStr)
+        fmt.Printf("usage is: %s %s\n", os.Args[0], useStr)
+        os.Exit(1)
+    }
+
+    flagMap, err := util.ParseFlags(os.Args, flags)
+    if err != nil {log.Fatalf("util.ParseFlags: %v\n", err)}
+
+    dbg = false
+    _, ok := flagMap["dbg"]
+    if ok {dbg = true}
+
+    ipDest := "173.249.39.249"
+    ipval, ok := flagMap["serv"]
+    if !ok {
+        log.Fatalf("error -- no server flag provided!\n")
+    } else {
+        if ipval.(string) == "none" {log.Fatalf("error -- no server ip destination provided!\n")}
+        ipDest = ipval.(string)
+    }
+
+	ipDestPort := "4222"
+    pval, ok := flagMap["port"]
+    if ok {
+        if pval.(string) == "none" {log.Fatalf("error -- no port destination provided!\n")}
+        ipDestPort = pval.(string)
+    }
+
+    msg := ""
+    tval, ok := flagMap["msg"]
+    if !ok {
+        log.Fatalf("error -- no msg flag provided!\n")
+    } else {
+        if tval.(string) == "none" {log.Fatalf("error -- no msg name provided!\n")}
+        msg = tval.(string)
+    }
+
+    subTopic := ""
+    stval, ok := flagMap["topic"]
+    if !ok {
+        log.Fatalf("error -- no topic flag provided!\n")
+    } else {
+        if stval.(string) == "none" {log.Fatalf("error -- no topic provided!\n")}
+        subTopic = stval.(string)
+    }
+
+    if dbg {
+        fmt.Printf("serverip: %s\n", ipDest)
+        fmt.Printf("port:     %s\n", ipDestPort)
+        fmt.Printf("topic:    %s\n", subTopic)
+        fmt.Printf("msg:      %s\n", msg)
+    }
+
+	dest := ipDest + ":" + ipDestPort
+//	nc, err := nats.Connect(nats.DefaultURL)
+	nc, err := nats.Connect(dest)
+	if err != nil {
+		log.Fatalf("Failed to connect to NATS: %v", err)
+	}
+	defer nc.Drain()
+
+	log.Printf("connection established! publishing on topic: %s\n", subTopic)
+
+	// time out
+	tmout := 2 * time.Second
+
+	// make request and wait fo reply
+	reply, err := nc.Request(subTopic, []byte(msg),tmout)
+	if err != nil {
+		log.Fatalf("error -- Request failed <%s:%s>: %v\n", subTopic, msg, err)
+	}
+	err = nc.Flush() 
+	if err != nil {
+		if err == nats.ErrNoResponders {
+			log.Fatalf("[Client] Error: No services are listening on this topic!")
+		}
+		if err == nats.ErrTimeout {
+			log.Fatalf("[Client] Error: Request timed out after %v", tmout)
+		}
+		log.Fatalf("[Client] Request error: %v\n", err)
+	}
+
+	if dbg {log.Printf("Request success: <%s:%s>!\n", subTopic, msg)}
+
+	log.Printf("info -- success reply: %s\n", string(reply.Data))
+}
