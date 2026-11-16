@@ -16,6 +16,10 @@ Program that publishes a message on a topic on the nats server.
 
 Program that subscribes to a message on a topic on the nats server.  
 
+### natsClientSubQueue
+
+Program that subscribes to a message in queue group.
+
 ### natsClientResp
 
 Program that subscribes to a message on a topic on the nats server. The client responds with a response message to the publisher after receiving a message.
@@ -23,6 +27,8 @@ Program that subscribes to a message on a topic on the nats server. The client r
 ### natsClientReq
 
 Program that publishes a message and requests a reply.  
+
+
 
 
 ## Jet Stream
